@@ -1,5 +1,9 @@
 # drawing-diff
 
+[![CI](https://github.com/<your-username>/drawing-diff/actions/workflows/ci.yml/badge.svg)](https://github.com/<your-username>/drawing-diff/actions/workflows/ci.yml)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 Compare two revisions of an engineering drawing PDF and get a reviewer-ready list of **what actually changed** — dimension values, tolerances, notes, and geometry — instead of squinting at two sheets side by side.
 
 ```console

@@ -14,31 +14,48 @@ import re
 from dataclasses import dataclass
 
 # Unicode symbols that appear on drawings, with the ASCII fallbacks CAD
-# exporters often emit instead.
+# exporters often emit instead. The patterns below are built from these, so
+# adding a notation here is enough to support it.
 DIAMETER_SYMBOLS = ("Ø", "⌀", "%%c", "DIA")
 DEGREE_SYMBOLS = ("°", "DEG")
 PLUS_MINUS_SYMBOLS = ("±", "+/-", "+-")
 
 _NUMBER = r"\d+(?:[.,]\d+)?"
+_FIT = r"[A-Za-z]{1,2}\d{1,2}"
+
+
+def _alternation(symbols: tuple[str, ...], trailing_space: bool = False) -> str:
+    """Build a regex alternation from literal symbols, longest first.
+
+    Longest-first matters so that ``+/-`` is not partially consumed by ``+-``.
+    """
+    escaped = sorted((re.escape(s) for s in symbols), key=len, reverse=True)
+    suffix = r"\s*" if trailing_space else ""
+    return "(?:" + "|".join(escaped) + ")" + suffix
+
+
+_DIAMETER_ALT = _alternation(DIAMETER_SYMBOLS, trailing_space=True)
+_DEGREE_ALT = _alternation(DEGREE_SYMBOLS)
+_PLUS_MINUS_ALT = _alternation(PLUS_MINUS_SYMBOLS)
 
 # Order matters: the most specific patterns are tried first.
 _PATTERNS: list[tuple[str, str]] = [
     # M10x1.5 / M10 x 1,5
-    ("thread", rf"^M(?P<value>\d+(?:[.,]\d+)?)(?:\s*[x×]\s*(?P<pitch>{_NUMBER}))?$"),
+    ("thread", rf"^M(?P<value>{_NUMBER})(?:\s*[x×]\s*(?P<pitch>{_NUMBER}))?$"),
     # Ø25.4 H7 / Ø25,4h7
-    ("diameter", rf"^(?:Ø|⌀|%%c|DIA\s*)(?P<value>{_NUMBER})\s*(?P<fit>[A-Za-z]{{1,2}}\d{{1,2}})?$"),
+    ("diameter", rf"^{_DIAMETER_ALT}(?P<value>{_NUMBER})\s*(?P<fit>{_FIT})?$"),
     # R5 / R 5,0
     ("radius", rf"^R\s*(?P<value>{_NUMBER})$"),
     # 45° / 45 DEG
-    ("angle", rf"^(?P<value>{_NUMBER})\s*(?:°|DEG)$"),
+    ("angle", rf"^(?P<value>{_NUMBER})\s*{_DEGREE_ALT}$"),
     # 25.4 H7
-    ("linear_fit", rf"^(?P<value>{_NUMBER})\s*(?P<fit>[A-Za-z]{{1,2}}\d{{1,2}})$"),
+    ("linear_fit", rf"^(?P<value>{_NUMBER})\s*(?P<fit>{_FIT})$"),
     # bare 25.4
     ("linear", rf"^(?P<value>{_NUMBER})$"),
 ]
 
 # Tolerances, stripped off before the base value is matched.
-_SYMMETRIC_TOL = re.compile(rf"(?:±|\+/-|\+-)\s*(?P<tol>{_NUMBER})")
+_SYMMETRIC_TOL = re.compile(rf"{_PLUS_MINUS_ALT}\s*(?P<tol>{_NUMBER})")
 _ASYMMETRIC_TOL = re.compile(
     rf"\+\s*(?P<upper>{_NUMBER})\s*/?\s*-\s*(?P<lower>{_NUMBER})"
 )
