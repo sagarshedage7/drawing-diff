@@ -11,6 +11,28 @@ from .models import BBox, Severity
 from .report import to_annotated_pdf, to_json, to_text
 
 
+def _configure_output_encoding() -> None:
+    """Make console output safe on a legacy Windows code page.
+
+    Windows Python writes to the console using the active ANSI code page,
+    usually cp1252, which has no mapping for the arrow used in change
+    messages — or for glyphs that come straight out of a drawing, like the
+    U+2300 diameter sign. Printing one raises UnicodeEncodeError and takes
+    the whole run down after the comparison has already succeeded.
+
+    Switching the streams to UTF-8 with a replacing error handler means the
+    worst case is a substituted character rather than a crash.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError, OSError):
+            # Reconfigure is unavailable on a stream that isn't a
+            # TextIOWrapper (a pytest capture object, for instance).
+            # Nothing to do — those handle Unicode already.
+            pass
+
+
 def _parse_ignore(value: str) -> BBox:
     """Parse an --ignore box given as x0,y0,x1,y1 in PDF points."""
     try:
@@ -61,6 +83,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    _configure_output_encoding()
     args = build_parser().parse_args(argv)
 
     try:
